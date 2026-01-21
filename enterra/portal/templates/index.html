@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Enterra — Лента{% endblock %}
+
+{% block content %}
+  <div class="d-flex flex-wrap align-items-center justify-content-between mt-4 mb-3 gap-2">
+    <div class="d-flex align-items-center gap-2">
+      <div class="h5 mb-0">Свежие посты</div>
+      <span class="badge text-bg-light border">Всего: {{ posts|length }}</span>
+    </div>
+    {% if q %}
+      <div class="text-secondary">Поиск: <span class="text-light fw-semibold">{{ q }}</span></div>
+    {% endif %}
+  </div>
+
+  {% if trending_posts %}
+    <div class="portal-panel portal-glow p-3 p-lg-4 mb-3">
+      <div class="d-flex align-items-center justify-content-between">
+        <div class="fw-bold">🔥 Обсуждаемое</div>
+        <a class="btn btn-sm btn-outline-light" href="{{ url_for('main.random_post') }}">🎲 Случайный пост</a>
+      </div>
+      <div class="d-flex flex-wrap gap-2 mt-3">
+        {% for t in trending_posts %}
+          <a class="badge text-bg-light portal-pill text-decoration-none" href="{{ url_for('main.post_detail', post_id=t.id) }}">
+            {{ t.cover_emoji or "✨" }} {{ t.title[:64] }}{% if t.title|length > 64 %}…{% endif %}
+          </a>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+
+  {% if not posts %}
+    <div class="portal-empty p-4">
+      <div class="fw-bold mb-1">Пока пусто</div>
+      <div class="text-secondary">Попробуйте выбрать другую категорию или создать первый пост.</div>
+    </div>
+  {% endif %}
+
+  <div class="row g-3">
+    {% for post in posts %}
+      <div class="col-md-6 col-lg-4">
+        <a class="portal-card d-block p-3 p-lg-4 position-relative" href="{{ url_for('main.post_detail', post_id=post.id) }}">
+          <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+            <div class="portal-emoji">{{ post.cover_emoji or "✨" }}</div>
+            {% if not post.is_published %}
+              <span class="badge text-bg-warning">Скрыт</span>
+            {% endif %}
+          </div>
+          <div class="fw-bold mb-2" style="font-size: 1.15rem; line-height: 1.4;">{{ post.title }}</div>
+          {% if post.summary %}
+            <div class="text-secondary mb-2" style="font-size: 0.95rem; line-height: 1.5;">{{ post.summary }}</div>
+          {% elif post.body %}
+            <div class="text-secondary mb-2" style="font-size: 0.95rem; line-height: 1.5;">{{ post.body[:120] }}{% if post.body|length > 120 %}…{% endif %}</div>
+          {% endif %}
+          <div class="d-flex flex-wrap gap-2 mb-3">
+            {% for c in post.categories %}
+              <span class="badge text-bg-light border rounded-pill px-3" style="font-weight: 500;">{{ c.title }}</span>
+            {% endfor %}
+            {% for tag in post.tags %}
+              <span class="badge text-bg-light border rounded-pill px-3" style="font-weight: 500;">#{{ tag.name }}</span>
+            {% endfor %}
+          </div>
+          <div class="portal-card-footer d-flex justify-content-between align-items-center small">
+            <span class="text-secondary d-flex align-items-center gap-1">
+              <span style="opacity: 0.8;">👤</span> 
+              <span>{{ post.author.username }}</span>
+            </span>
+            <span class="text-secondary d-flex align-items-center gap-2">
+              <span class="d-flex align-items-center gap-1">
+                <span style="opacity: 0.8;">👁️</span>
+                <span>{{ post.views }}</span>
+              </span>
+              <span class="d-flex align-items-center gap-1">
+                <span style="opacity: 0.8;">🗓️</span>
+                <span>{{ post.created_at.strftime("%d.%m.%Y") }}</span>
+              </span>
+            </span>
+          </div>
+        </a>
+      </div>
+    {% endfor %}
+  </div>
+{% endblock %}
+
+
