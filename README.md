@@ -129,5 +129,4 @@ project/
 
 © 2026 Entertainment Flask Portal
 
-```
 
