@@ -1,7 +1,7 @@
 import os
 
 from .extensions import db
-from .models import Achievement, Category, Post, QuizQuestion, User
+from .models import Achievement, Category, Post, QuizQuestion, Tag, User
 
 
 def ensure_seed_data() -> None:
@@ -17,6 +17,27 @@ def ensure_seed_data() -> None:
     for slug, title in base_categories:
         if not Category.query.filter_by(slug=slug).first():
             db.session.add(Category(slug=slug, title=title))
+    db.session.commit()
+
+    # Initial tags - расширенный список
+    initial_tags = [
+        "мемы", "кино", "игры", "музыка", "юмор", "технологии",
+        "подборка", "рекомендации", "топ", "обзор", "новости",
+        "комедия", "драма", "фантастика", "хоррор", "приключения",
+        "инди", "pc", "консоль", "мобильные",
+        "рок", "поп", "электроника", "хип-хоп", "джаз",
+        "аниме", "сериалы", "тв", "стриминг",
+        "cs2", "dota", "valorant", "fps", "rpg", "mmo",
+        "новости", "политика", "спорт", "наука",
+        "программирование", "разработка", "дизайн", "веб",
+        "фильм", "сериал", "трейлер", "рецензия",
+        "альбом", "сингл", "концерт", "фестиваль",
+        "шутка", "мем", "вирусное", "тренд",
+    ]
+    for tag_name in initial_tags:
+        slug = tag_name.lower().strip().replace(" ", "-")
+        if not Tag.query.filter_by(slug=slug).first():
+            db.session.add(Tag(name=tag_name, slug=slug))
     db.session.commit()
 
     # Admin by email (optional)

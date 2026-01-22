@@ -26,7 +26,6 @@ class PostForm(FlaskForm):
     title = StringField("Заголовок", validators=[DataRequired(), Length(min=3, max=140)])
     summary = StringField("Коротко (анонс)", validators=[Length(max=240)])
     cover_emoji = StringField("Обложка (эмодзи)", validators=[Length(max=8)])
-    categories = SelectMultipleField("Категории", coerce=int)
     tags = StringField("Теги (через запятую)", validators=[Optional(), Length(max=200)])
     body = TextAreaField("Текст", validators=[DataRequired(), Length(min=20)])
     is_published = BooleanField("Опубликовать", default=True)

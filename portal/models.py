@@ -132,6 +132,29 @@ class PostLike(db.Model):
     __table_args__ = (db.UniqueConstraint("user_id", "post_id", name="uq_like_user_post"),)
 
 
+class PostView(db.Model):
+    """Отслеживание просмотров постов пользователями."""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    post_id = db.Column(db.Integer, db.ForeignKey("post.id"), nullable=False, index=True)
+    viewed_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
+    progress = db.Column(db.Float, default=0.0, nullable=False)  # 0.0 to 1.0 - процент просмотра
+    is_complete = db.Column(db.Boolean, default=False, nullable=False)  # Просмотрен полностью
+    view_duration = db.Column(db.Float, default=0.0, nullable=False)  # Время просмотра в секундах
+    __table_args__ = (db.UniqueConstraint("user_id", "post_id", name="uq_view_user_post"),)
+
+
+class UserTagPreference(db.Model):
+    """Предпочтения пользователя по тегам на основе лайков."""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    tag_id = db.Column(db.Integer, db.ForeignKey("tag.id"), nullable=False, index=True)
+    score = db.Column(db.Float, default=1.0, nullable=False)  # Вес предпочтения
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    __table_args__ = (db.UniqueConstraint("user_id", "tag_id", name="uq_user_tag_preference"),)
+
+
 class Achievement(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String(64), unique=True, nullable=False, index=True)
@@ -173,6 +196,14 @@ class QuizResult(db.Model):
 class ModerationSettings(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     auto_enabled = db.Column(db.Boolean, default=True, nullable=False)
+
+
+class ModeratedTag(db.Model):
+    """Теги, требующие модерации."""
+    id = db.Column(db.Integer, primary_key=True)
+    tag_id = db.Column(db.Integer, db.ForeignKey("tag.id"), nullable=False, unique=True, index=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    tag = db.relationship("Tag")
 
 
 class ModerationLog(db.Model):

@@ -88,4 +88,54 @@ def run_simple_migrations() -> None:
     _try("CREATE INDEX IF NOT EXISTS ix_follow_followed_id ON follow(followed_id);")
     _try("CREATE INDEX IF NOT EXISTS ix_follow_created_at ON follow(created_at);")
 
+    # Создаём таблицу post_view для отслеживания просмотров
+    _try("""
+        CREATE TABLE IF NOT EXISTS post_view (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            post_id INTEGER NOT NULL,
+            viewed_at TIMESTAMP NOT NULL,
+            progress REAL NOT NULL DEFAULT 0.0,
+            is_complete BOOLEAN NOT NULL DEFAULT 0,
+            FOREIGN KEY (user_id) REFERENCES user (id) ON DELETE CASCADE,
+            FOREIGN KEY (post_id) REFERENCES post (id) ON DELETE CASCADE,
+            UNIQUE (user_id, post_id)
+        );
+    """)
+    _try("CREATE INDEX IF NOT EXISTS ix_post_view_user_id ON post_view(user_id);")
+    _try("CREATE INDEX IF NOT EXISTS ix_post_view_post_id ON post_view(post_id);")
+    _try("CREATE INDEX IF NOT EXISTS ix_post_view_viewed_at ON post_view(viewed_at);")
+    
+    # Добавляем колонку view_duration для времени просмотра
+    _try("ALTER TABLE post_view ADD COLUMN view_duration REAL NOT NULL DEFAULT 0.0;")
+
+    # Создаём таблицу user_tag_preference для предпочтений по тегам
+    _try("""
+        CREATE TABLE IF NOT EXISTS user_tag_preference (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            tag_id INTEGER NOT NULL,
+            score REAL NOT NULL DEFAULT 1.0,
+            created_at TIMESTAMP NOT NULL,
+            updated_at TIMESTAMP NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES user (id) ON DELETE CASCADE,
+            FOREIGN KEY (tag_id) REFERENCES tag (id) ON DELETE CASCADE,
+            UNIQUE (user_id, tag_id)
+        );
+    """)
+    _try("CREATE INDEX IF NOT EXISTS ix_user_tag_preference_user_id ON user_tag_preference(user_id);")
+    _try("CREATE INDEX IF NOT EXISTS ix_user_tag_preference_tag_id ON user_tag_preference(tag_id);")
+    _try("CREATE INDEX IF NOT EXISTS ix_user_tag_preference_created_at ON user_tag_preference(created_at);")
+
+    # Создаём таблицу moderated_tag для тегов, требующих модерации
+    _try("""
+        CREATE TABLE IF NOT EXISTS moderated_tag (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tag_id INTEGER NOT NULL UNIQUE,
+            created_at TIMESTAMP NOT NULL,
+            FOREIGN KEY (tag_id) REFERENCES tag (id) ON DELETE CASCADE
+        );
+    """)
+    _try("CREATE INDEX IF NOT EXISTS ix_moderated_tag_tag_id ON moderated_tag(tag_id);")
+
 
