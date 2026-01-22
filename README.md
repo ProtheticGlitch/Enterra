@@ -1,4 +1,3 @@
-````markdown
 # 🎭 Entertainment Flask Portal
 
 ![Python](https://img.shields.io/badge/python-3.10+-blue.svg)
@@ -131,3 +130,4 @@ project/
 © 2026 Entertainment Flask Portal
 
 ```
+
