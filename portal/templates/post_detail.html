@@ -52,22 +52,42 @@
       </div>
     {% endif %}
 
-    <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
-      {% for code, cfg in reactions.items() %}
-        {% set count = reactions_counts.get(code, 0) %}
-        {% if current_user.is_authenticated %}
-          <form method="post" action="{{ url_for('main.post_react', post_id=post.id, reaction_code=code) }}">
-            <button class="btn btn-sm {% if user_reaction == code %}btn-primary{% else %}btn-outline-light{% endif %}" type="submit">
-              {{ cfg.emoji }} {% if count %}<span class="small">{{ count }}</span>{% endif %}
-            </button>
-          </form>
-        {% else %}
-          <span class="badge text-bg-light border">
-            {{ cfg.emoji }} {% if count %}{{ count }}{% endif %}
-          </span>
-        {% endif %}
-      {% endfor %}
+    <div class="d-flex align-items-center gap-3 mt-3">
+      {% if current_user.is_authenticated %}
+        <form method="post" action="{{ url_for('main.post_react', post_id=post.id, reaction_code='like') }}" class="d-inline">
+          <button class="btn {% if user_reaction == 'like' %}btn-primary{% else %}btn-outline-light{% endif %}" type="submit">
+            ❤️ Нравится
+            {% set like_count = reactions_counts.get('like', 0) %}
+            {% if like_count %}<span class="badge bg-light text-dark ms-2">{{ like_count }}</span>{% endif %}
+          </button>
+        </form>
+        <form method="post" action="{{ url_for('main.post_react', post_id=post.id, reaction_code='dislike') }}" class="d-inline">
+          <button class="btn {% if user_reaction == 'dislike' %}btn-danger{% else %}btn-outline-light{% endif %}" type="submit">
+            👎 Не нравится
+            {% set dislike_count = reactions_counts.get('dislike', 0) %}
+            {% if dislike_count %}<span class="badge bg-light text-dark ms-2">{{ dislike_count }}</span>{% endif %}
+          </button>
+        </form>
+      {% else %}
+        <span class="badge text-bg-light border">
+          ❤️ Нравится {% set like_count = reactions_counts.get('like', 0) %}{% if like_count %}{{ like_count }}{% endif %}
+        </span>
+        <span class="badge text-bg-light border">
+          👎 Не нравится {% set dislike_count = reactions_counts.get('dislike', 0) %}{% if dislike_count %}{{ dislike_count }}{% endif %}
+        </span>
+      {% endif %}
     </div>
+
+    {% if current_user.is_authenticated and user_reaction == 'like' and similar_tags %}
+      <div class="portal-panel p-3 p-lg-4 mt-4">
+        <div class="fw-bold mb-2">🏷️ Похожие теги на основе ваших предпочтений:</div>
+        <div class="d-flex flex-wrap gap-2">
+          {% for tag in similar_tags %}
+            <a class="badge text-bg-light border text-decoration-none" href="{{ url_for('main.index', tag=tag.slug) }}">#{{ tag.name }}</a>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
 
     <article class="portal-article mt-3">
       {{ post.body | replace("\n", "<br>") | safe }}
@@ -144,6 +164,92 @@
       </div>
     </div>
   </div>
+
+  {% if current_user.is_authenticated %}
+  <script>
+    // Отслеживание просмотра поста с временем
+    let viewTracked = false;
+    let lastProgress = 0;
+    let viewStartTime = Date.now();
+    let lastTrackTime = Date.now();
+    
+    function trackView(progress, isComplete) {
+      if (viewTracked && !isComplete) return;
+      
+      // Вычисляем время просмотра с момента последнего обновления
+      const currentTime = Date.now();
+      const timeDelta = (currentTime - lastTrackTime) / 1000; // в секундах
+      lastTrackTime = currentTime;
+      
+      // Общее время просмотра
+      const totalViewTime = (currentTime - viewStartTime) / 1000;
+      
+      fetch('{{ url_for("main.track_post_view", post_id=post.id) }}', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          progress: progress,
+          is_complete: isComplete,
+          view_duration: totalViewTime
+        })
+      })
+      .then(response => response.json())
+      .then(data => {
+        lastProgress = data.progress;
+      })
+      .catch(error => console.error('Ошибка отслеживания просмотра:', error));
+    }
+
+    // Отслеживание скролла
+    let scrollTimeout;
+    window.addEventListener('scroll', function() {
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(function() {
+        const windowHeight = window.innerHeight;
+        const documentHeight = document.documentElement.scrollHeight;
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        const progress = Math.min(1.0, (scrollTop + windowHeight) / documentHeight);
+        const isComplete = progress >= 0.9;
+        
+        if (progress > lastProgress) {
+          trackView(progress, isComplete);
+        }
+      }, 1000);
+    });
+
+    // Отслеживание при загрузке
+    window.addEventListener('load', function() {
+      viewStartTime = Date.now();
+      lastTrackTime = Date.now();
+      setTimeout(function() {
+        const windowHeight = window.innerHeight;
+        const documentHeight = document.documentElement.scrollHeight;
+        const progress = Math.min(1.0, windowHeight / documentHeight);
+        trackView(progress, progress >= 0.9);
+      }, 2000);
+    });
+    
+    // Отслеживание времени при уходе со страницы
+    window.addEventListener('beforeunload', function() {
+      const totalViewTime = (Date.now() - viewStartTime) / 1000;
+      const windowHeight = window.innerHeight;
+      const documentHeight = document.documentElement.scrollHeight;
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const progress = Math.min(1.0, (scrollTop + windowHeight) / documentHeight);
+      
+      // Отправляем финальные данные через sendBeacon
+      const data = JSON.stringify({
+        progress: progress,
+        is_complete: progress >= 0.9,
+        view_duration: totalViewTime
+      });
+      const blob = new Blob([data], { type: 'application/json' });
+      navigator.sendBeacon('{{ url_for("main.track_post_view", post_id=post.id) }}', blob);
+    });
+  </script>
+  {% endif %}
 {% endblock %}
 
 

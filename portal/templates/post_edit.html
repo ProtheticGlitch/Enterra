@@ -55,15 +55,11 @@
           </div>
 
           <div class="mb-3">
-            <label class="form-label" for="{{ form.categories.id }}">{{ form.categories.label.text }}</label>
-            {{ form.categories(class_="form-select", size="6") }}
-            <div class="form-text">Можно выбрать несколько (Ctrl/Command + клик).</div>
-          </div>
-
-          <div class="mb-3">
             <label class="form-label" for="{{ form.tags.id }}">{{ form.tags.label.text }}</label>
-            {{ form.tags(class_="form-control", placeholder="например: мемы, кино, игры") }}
+            {{ form.tags(class_="form-control", placeholder="например: мемы, кино, игры", id="tags-input") }}
+            <div id="tag-status" class="mt-2"></div>
             <div class="form-text">Введите теги через запятую. Они помогут другим пользователям найти ваш пост.</div>
+            <div id="tag-suggestions" class="mt-2"></div>
             {% if form.tags.errors %}
               <div class="form-text text-danger">{{ form.tags.errors[0] }}</div>
             {% endif %}
@@ -102,7 +98,7 @@
 
           <div class="mb-3">
             <label class="form-label" for="{{ form.body.id }}">{{ form.body.label.text }}</label>
-            {{ form.body(class_="form-control", rows="10", placeholder="Пиши как хочешь: списком, абзацами, с переносами строк…") }}
+            <textarea id="editor" name="{{ form.body.name }}" class="form-control" rows="10" placeholder="Пиши как хочешь: списком, абзацами, с переносами строк…">{{ form.body.data or '' }}</textarea>
             {% if form.body.errors %}
               <div class="form-text text-danger">{{ form.body.errors[0] }}</div>
             {% endif %}
@@ -127,8 +123,204 @@
     </div>
   </div>
 
+  <script src="https://cdn.ckeditor.com/ckeditor5/41.1.0/classic/ckeditor.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', function() {
+      // Инициализация CKEditor с расширенными возможностями
+      ClassicEditor
+        .create(document.querySelector('#editor'), {
+          toolbar: {
+            items: [
+              'heading', '|',
+              'bold', 'italic', 'underline', 'strikethrough', '|',
+              'fontSize', 'fontFamily', 'fontColor', 'fontBackgroundColor', '|',
+              'alignment', '|',
+              'numberedList', 'bulletedList', '|',
+              'outdent', 'indent', '|',
+              'link', 'blockQuote', 'insertTable', 'imageUpload', 'mediaEmbed', '|',
+              'code', 'codeBlock', '|',
+              'undo', 'redo'
+            ],
+            shouldNotGroupWhenFull: true
+          },
+          heading: {
+            options: [
+              { model: 'paragraph', title: 'Параграф', class: 'ck-heading_paragraph' },
+              { model: 'heading1', view: 'h1', title: 'Заголовок 1', class: 'ck-heading_heading1' },
+              { model: 'heading2', view: 'h2', title: 'Заголовок 2', class: 'ck-heading_heading2' },
+              { model: 'heading3', view: 'h3', title: 'Заголовок 3', class: 'ck-heading_heading3' }
+            ]
+          },
+          fontSize: {
+            options: [9, 11, 13, 'default', 17, 19, 21, 27, 35]
+          },
+          fontFamily: {
+            options: [
+              'default',
+              'Arial, Helvetica, sans-serif',
+              'Courier New, Courier, monospace',
+              'Georgia, serif',
+              'Lucida Sans Unicode, Lucida Grande, sans-serif',
+              'Tahoma, Geneva, sans-serif',
+              'Times New Roman, Times, serif',
+              'Trebuchet MS, Helvetica, sans-serif',
+              'Verdana, Geneva, sans-serif'
+            ]
+          },
+          link: {
+            decorators: {
+              openInNewTab: {
+                mode: 'manual',
+                label: 'Открыть в новой вкладке',
+                attributes: {
+                  target: '_blank',
+                  rel: 'noopener noreferrer'
+                }
+              }
+            }
+          },
+          table: {
+            contentToolbar: ['tableColumn', 'tableRow', 'mergeTableCells']
+          }
+        })
+        .catch(error => {
+          console.error('Ошибка инициализации CKEditor:', error);
+        });
+
+      // Проверка существования тегов
+      const tagsInput = document.getElementById('tags-input');
+      const tagStatus = document.getElementById('tag-status');
+      const tagSuggestions = document.getElementById('tag-suggestions');
+      let checkTimeout;
+
+      tagsInput.addEventListener('input', function() {
+        clearTimeout(checkTimeout);
+        const value = this.value.trim();
+        if (!value) {
+          tagStatus.innerHTML = '';
+          tagSuggestions.innerHTML = '';
+          return;
+        }
+
+        // Получаем последний тег (после последней запятой)
+        const tags = value.split(',').map(t => t.trim()).filter(t => t);
+        const lastTag = tags[tags.length - 1];
+
+        if (lastTag && lastTag.length >= 2) {
+          checkTimeout = setTimeout(() => {
+            // Проверка существования тега
+            fetch(`{{ url_for('main.check_tag') }}?name=${encodeURIComponent(lastTag)}`)
+              .then(response => response.json())
+              .then(data => {
+                if (data.exists) {
+                  tagStatus.innerHTML = `<span class="badge text-bg-success">✓ Тег "${data.tag.name}" уже существует</span>`;
+                } else {
+                  tagStatus.innerHTML = `<span class="badge text-bg-info">+ Новый тег "${lastTag}"</span>`;
+                }
+              })
+              .catch(error => console.error('Ошибка проверки тега:', error));
+
+            // Получение предложений и рекомендаций
+            fetch(`{{ url_for('main.tag_suggestions') }}?q=${encodeURIComponent(lastTag)}`)
+              .then(response => response.json())
+              .then(data => {
+                let html = '';
+                if (data.suggestions && data.suggestions.length > 0) {
+                  const suggestionsHtml = data.suggestions.map(tag => 
+                    `<span class="badge text-bg-light me-1 mb-1 tag-suggestion-badge" style="cursor: pointer; user-select: none;" data-tag-name="${tag.name}" title="Нажмите, чтобы добавить">#${tag.name}</span>`
+                  ).join('');
+                  html += `<div class="small text-secondary mb-1">Предложения:</div><div class="d-flex flex-wrap gap-1">${suggestionsHtml}</div>`;
+                }
+                
+                // Получаем рекомендации на основе предпочтений пользователя
+                {% if current_user.is_authenticated %}
+                fetch(`{{ url_for('main.tag_recommendations') }}`)
+                  .then(response => response.json())
+                  .then(recData => {
+                    if (recData.recommendations && recData.recommendations.length > 0 && lastTag.length < 2) {
+                      const recHtml = recData.recommendations.map(tag => 
+                        `<span class="badge text-bg-primary me-1 mb-1 tag-suggestion-badge" style="cursor: pointer; user-select: none;" data-tag-name="${tag.name}" title="Рекомендуется на основе ваших предпочтений. Нажмите, чтобы добавить">#${tag.name} ⭐</span>`
+                      ).join('');
+                      if (html) html += '<div class="small text-secondary mb-1 mt-2">Рекомендации для вас:</div>';
+                      else html = '<div class="small text-secondary mb-1">Рекомендации для вас:</div>';
+                      html += `<div class="d-flex flex-wrap gap-1">${recHtml}</div>`;
+                    }
+                    tagSuggestions.innerHTML = html;
+                    
+                    // Добавляем обработчики клика для всех предложенных тегов
+                    document.querySelectorAll('.tag-suggestion-badge').forEach(badge => {
+                      badge.addEventListener('click', function() {
+                        const tagName = this.getAttribute('data-tag-name');
+                        addTag(tagName);
+                      });
+                      // Добавляем hover эффект
+                      badge.addEventListener('mouseenter', function() {
+                        this.style.opacity = '0.8';
+                        this.style.transform = 'scale(1.05)';
+                      });
+                      badge.addEventListener('mouseleave', function() {
+                        this.style.opacity = '1';
+                        this.style.transform = 'scale(1)';
+                      });
+                    });
+                  })
+                  .catch(error => console.error('Ошибка получения рекомендаций:', error));
+                {% else %}
+                tagSuggestions.innerHTML = html;
+                // Добавляем обработчики клика для предложений
+                if (html) {
+                  document.querySelectorAll('.tag-suggestion-badge').forEach(badge => {
+                    badge.addEventListener('click', function() {
+                      const tagName = this.getAttribute('data-tag-name');
+                      addTag(tagName);
+                    });
+                    badge.addEventListener('mouseenter', function() {
+                      this.style.opacity = '0.8';
+                      this.style.transform = 'scale(1.05)';
+                    });
+                    badge.addEventListener('mouseleave', function() {
+                      this.style.opacity = '1';
+                      this.style.transform = 'scale(1)';
+                    });
+                  });
+                }
+                {% endif %}
+              })
+              .catch(error => console.error('Ошибка получения предложений:', error));
+          }, 500);
+        }
+      });
+
+      function addTag(tagName) {
+        const currentValue = tagsInput.value.trim();
+        const tags = currentValue.split(',').map(t => t.trim()).filter(t => t);
+        
+        // Удаляем последний неполный тег, если он есть (менее 2 символов)
+        if (tags.length > 0 && tags[tags.length - 1].length < 2) {
+          tags.pop();
+        }
+        
+        // Добавляем новый тег, если его еще нет
+        if (!tags.includes(tagName)) {
+          tags.push(tagName);
+          tagsInput.value = tags.join(', ') + ', ';
+          tagStatus.innerHTML = `<span class="badge text-bg-success">✓ Тег "${tagName}" добавлен</span>`;
+        } else {
+          tagStatus.innerHTML = `<span class="badge text-bg-warning">Тег "${tagName}" уже добавлен</span>`;
+        }
+        
+        // Фокус на поле ввода и перемещение курсора в конец
+        tagsInput.focus();
+        const len = tagsInput.value.length;
+        tagsInput.setSelectionRange(len, len);
+        
+        // Очищаем предложения после добавления
+        tagSuggestions.innerHTML = '';
+        
+        // Триггерим событие input для обновления статуса
+        tagsInput.dispatchEvent(new Event('input'));
+      }
+
       const emojiInput = document.getElementById('{{ form.cover_emoji.id }}');
       const emojiDisplay = document.querySelector('.emoji-display');
       const emojiButtons = document.querySelectorAll('.emoji-btn');
