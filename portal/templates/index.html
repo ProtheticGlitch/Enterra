@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}Enterra — Лента{% endblock %}
+
+{% block content %}
+  {% if recommended_posts and current_user.is_authenticated %}
+    <div class="portal-panel portal-glow p-3 p-lg-4 mb-4">
+      <div class="d-flex align-items-center gap-2 mb-2">
+        <span class="fs-4">✨</span>
+        <div class="fw-bold">Рекомендации для вас</div>
+      </div>
+      <div class="text-secondary small mb-3">Посты на основе ваших предпочтений</div>
+      
+      <div class="d-flex flex-column gap-3">
+        {% for post in recommended_posts %}
+          <div class="portal-card-horizontal position-relative">
+            <div class="d-flex gap-0">
+              <!-- Левая часть: изображение или эмодзи -->
+              <div class="portal-card-image-wrapper flex-shrink-0 position-relative">
+                {% if post.media_path and post.media_type != "video" %}
+                  <img src="{{ url_for('static', filename=post.media_path) }}" alt="{{ post.title }}" class="portal-card-image">
+                {% else %}
+                  <div class="portal-card-emoji-wrapper">
+                    <div class="portal-card-emoji">{{ post.cover_emoji or "✨" }}</div>
+                  </div>
+                {% endif %}
+              </div>
+              
+              <!-- Правая часть: контент -->
+              <div class="portal-card-content flex-grow-1 d-flex flex-column p-4">
+                <!-- Метаданные вверху -->
+                <div class="portal-card-meta d-flex align-items-center gap-2 mb-3">
+                  <span class="text-secondary portal-meta-time">{{ post.created_at.strftime("%d.%m.%Y %H:%M") }}</span>
+                  {% if post.categories %}
+                    {% for c in post.categories[:1] %}
+                      <span class="portal-meta-dot"></span>
+                      <a href="{{ url_for('main.index', category=c.slug) }}" class="text-decoration-none text-secondary portal-meta-category-link" onclick="event.stopPropagation();">{{ c.title }}</a>
+                    {% endfor %}
+                  {% endif %}
+                  {% if post.tags %}
+                    {% for tag in post.tags[:3] %}
+                      <span class="portal-meta-dot"></span>
+                      <a href="{{ url_for('main.index', tag=tag.slug) }}" class="text-decoration-none text-secondary portal-meta-tag-link" onclick="event.stopPropagation();">#{{ tag.name }}</a>
+                    {% endfor %}
+                  {% endif %}
+                  {% if not post.is_published %}
+                    <span class="badge text-bg-warning flex-shrink-0 ms-auto">Скрыт</span>
+                  {% endif %}
+                </div>
+                
+                <!-- Заголовок -->
+                <h3 class="h4 mb-0 fw-bold portal-card-title">
+                  <a href="{{ url_for('main.post_detail', post_id=post.id) }}" class="text-decoration-none text-inherit">{{ post.title }}</a>
+                </h3>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="d-flex flex-wrap align-items-center justify-content-between mt-4 mb-3 gap-2">
+    <div class="d-flex align-items-center gap-2">
+      <div class="h5 mb-0">Свежие посты</div>
+      <span class="badge text-bg-light border">Всего: {{ posts|length }}</span>
+    </div>
+    {% if q %}
+      <div class="text-secondary">Поиск: <span class="text-light fw-semibold">{{ q }}</span></div>
+    {% endif %}
+  </div>
+
+  {% if trending_posts %}
+    <div class="portal-panel portal-glow p-3 p-lg-4 mb-3">
+      <div class="d-flex align-items-center justify-content-between">
+        <div class="fw-bold">🔥 Обсуждаемое</div>
+        <a class="btn btn-sm btn-outline-light" href="{{ url_for('main.random_post') }}">🎲 Случайный пост</a>
+      </div>
+      <div class="d-flex flex-wrap gap-2 mt-3">
+        {% for t in trending_posts %}
+          <a class="badge text-bg-light portal-pill text-decoration-none" href="{{ url_for('main.post_detail', post_id=t.id) }}">
+            {{ t.cover_emoji or "✨" }} {{ t.title[:64] }}{% if t.title|length > 64 %}…{% endif %}
+          </a>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+
+  {% if not posts %}
+    <div class="portal-empty p-4">
+      <div class="fw-bold mb-1">Пока пусто</div>
+      <div class="text-secondary">Попробуйте выбрать другую категорию или создать первый пост.</div>
+    </div>
+  {% endif %}
+
+  <!-- Лента постов -->
+  <div class="d-flex flex-column gap-3">
+    {% for post in posts %}
+      <div class="portal-card-horizontal position-relative">
+        <div class="d-flex gap-0">
+          <!-- Левая часть: изображение или эмодзи -->
+          <div class="portal-card-image-wrapper flex-shrink-0 position-relative">
+            {% if post.media_path and post.media_type != "video" %}
+              <img src="{{ url_for('static', filename=post.media_path) }}" alt="{{ post.title }}" class="portal-card-image">
+            {% else %}
+              <div class="portal-card-emoji-wrapper">
+                <div class="portal-card-emoji">{{ post.cover_emoji or "✨" }}</div>
+              </div>
+            {% endif %}
+          </div>
+          
+          <!-- Правая часть: контент -->
+          <div class="portal-card-content flex-grow-1 d-flex flex-column p-4">
+            <!-- Метаданные вверху -->
+            <div class="portal-card-meta d-flex align-items-center gap-2 mb-3 flex-wrap">
+              <span class="text-secondary portal-meta-time">{{ post.created_at.strftime("%d.%m.%Y %H:%M") }}</span>
+              {% if post.categories %}
+                {% for c in post.categories[:1] %}
+                  <span class="portal-meta-dot"></span>
+                  <a href="{{ url_for('main.index', category=c.slug) }}" class="text-decoration-none text-secondary portal-meta-category-link" onclick="event.stopPropagation();">{{ c.title }}</a>
+                {% endfor %}
+              {% endif %}
+              {% if post.tags %}
+                {% for tag in post.tags[:3] %}
+                  <a href="{{ url_for('main.index', tag=tag.slug) }}" class="portal-meta-tag" onclick="event.stopPropagation();">#{{ tag.name }}</a>
+                {% endfor %}
+              {% endif %}
+              {% if not post.is_published %}
+                <span class="badge text-bg-warning flex-shrink-0 ms-auto">Скрыт</span>
+              {% endif %}
+            </div>
+            
+            <!-- Заголовок -->
+            <h3 class="h4 mb-0 fw-bold portal-card-title">
+              <a href="{{ url_for('main.post_detail', post_id=post.id) }}" class="text-decoration-none text-inherit">{{ post.title }}</a>
+            </h3>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% endblock %}
+
+

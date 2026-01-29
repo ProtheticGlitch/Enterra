@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Enterra — {{ user.username }}{% endblock %}
+
+{% block content %}
+  <div class="row mt-4 g-3">
+    <div class="col-lg-4">
+      <div class="portal-panel portal-glow p-3 p-lg-4">
+        <div class="d-flex align-items-center gap-3">
+          {% if user.avatar_path %}
+            <img src="{{ url_for('static', filename=user.avatar_path) }}" alt="{{ user.username }}" class="portal-avatar" style="object-fit: cover; border-radius: 22px;">
+          {% else %}
+            <div class="portal-avatar">{{ user.username[:1].upper() }}</div>
+          {% endif %}
+          <div>
+            <div class="h4 mb-0">{{ user.username }}</div>
+            <div class="text-secondary small">Профиль пользователя</div>
+          </div>
+        </div>
+        {% if user.bio %}
+          <div class="mt-3 text-secondary" style="line-height: 1.6;">{{ user.bio }}</div>
+        {% endif %}
+        <div class="d-flex flex-wrap gap-2 mt-3">
+          {% if user.is_admin %}
+            <span class="badge text-bg-warning">Админ</span>
+          {% endif %}
+          <span class="badge text-bg-light border">Постов: {{ posts_count }}</span>
+          <span class="badge text-bg-light border">Комментариев: {{ comments_count }}</span>
+          <span class="badge text-bg-light border">Подписчиков: {{ followers_count or 0 }}</span>
+          <span class="badge text-bg-light border">Подписок: {{ following_count or 0 }}</span>
+        </div>
+        {% if current_user.is_authenticated and current_user.id != user.id %}
+          <div class="mt-3">
+            <form method="post" action="{% if is_following %}{{ url_for('main.unfollow_user', user_id=user.id) }}{% else %}{{ url_for('main.follow_user', user_id=user.id) }}{% endif %}" class="d-inline">
+              <button class="btn {% if is_following %}btn-outline-secondary{% else %}btn-primary{% endif %}" type="submit">
+                {% if is_following %}✓ Подписан{% else %}+ Подписаться{% endif %}
+              </button>
+            </form>
+          </div>
+        {% elif current_user.is_authenticated and current_user.id == user.id %}
+          <div class="mt-3">
+            <a class="btn btn-outline-primary" href="{{ url_for('main.profile_edit') }}">Редактировать профиль</a>
+          </div>
+        {% endif %}
+        <div class="text-secondary small mt-3">
+          Зарегистрирован: {{ user.created_at.strftime("%d.%m.%Y") }}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-8">
+      <ul class="nav nav-pills gap-2 mb-3" id="profileTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabPosts" type="button" role="tab">Посты</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabComments" type="button" role="tab">Комментарии</button>
+        </li>
+        <li class="ms-auto">
+          {% if current_user.is_authenticated and current_user.id == user.id %}
+            <a class="btn btn-primary btn-sm" href="{{ url_for('main.post_new') }}">+ Новый пост</a>
+          {% endif %}
+        </li>
+      </ul>
+
+      <div class="tab-content">
+        <div class="tab-pane fade show active" id="tabPosts" role="tabpanel">
+          {% if not posts %}
+            <div class="portal-empty p-4">
+              <div class="fw-bold mb-1">Пока нет постов</div>
+              <div class="text-secondary">Самое время создать первый.</div>
+            </div>
+          {% endif %}
+
+          <div class="d-flex flex-column gap-2">
+            {% for post in posts %}
+              <a class="portal-list-item p-3" href="{{ url_for('main.post_detail', post_id=post.id) }}">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                  <div>
+                    <div class="fw-bold">{{ post.cover_emoji or "✨" }} {{ post.title }}</div>
+                    <div class="text-secondary small mt-1">
+                      {% if post.summary %}
+                        {{ post.summary }}
+                      {% else %}
+                        {{ post.body | striptags | truncate(160) }}
+                      {% endif %}
+                    </div>
+                  </div>
+                  <div class="text-end small text-secondary">
+                    <div>{{ post.created_at.strftime("%d.%m.%Y") }}</div>
+                    {% if not post.is_published %}<span class="badge text-bg-warning mt-1">Скрыт</span>{% endif %}
+                  </div>
+                </div>
+              </a>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="tab-pane fade" id="tabComments" role="tabpanel">
+          {% if not comments %}
+            <div class="portal-empty p-4">
+              <div class="fw-bold mb-1">Пока нет комментариев</div>
+              <div class="text-secondary">Оставьте комментарий под любым постом.</div>
+            </div>
+          {% endif %}
+          <div class="d-flex flex-column gap-2">
+            {% for c in comments %}
+              <div class="portal-comment p-3">
+                <div class="d-flex justify-content-between small text-secondary">
+                  <div>
+                    Пост: <a href="{{ url_for('main.post_detail', post_id=c.post.id) }}">{{ c.post.title[:48] }}{% if c.post.title|length > 48 %}…{% endif %}</a>
+                  </div>
+                  <div>{{ c.created_at.strftime("%d.%m.%Y %H:%M") }}</div>
+                </div>
+                <div class="mt-2">{{ c.body | replace("\n", "<br>") | safe }}</div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+

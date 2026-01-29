@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Enterra — Облако тегов{% endblock %}
+
+{% block content %}
+  <div class="mt-4">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <div class="h4 mb-0">Облако тегов</div>
+      <a class="btn btn-outline-light" href="{{ url_for('main.index') }}">← Назад</a>
+    </div>
+
+    {% if not tags_with_counts %}
+      <div class="portal-empty p-4">
+        <div class="fw-bold mb-1">Пока нет тегов</div>
+        <div class="text-secondary">Теги появятся, когда пользователи начнут добавлять их к постам.</div>
+      </div>
+    {% else %}
+      <div class="portal-panel p-3 p-lg-4">
+        <div class="d-flex flex-wrap gap-2">
+          {% for tag, count in tags_with_counts %}
+            <a class="badge rounded-pill text-bg-light portal-pill text-decoration-none" 
+               href="{{ url_for('main.index', tag=tag.slug) }}"
+               style="font-size: {% if count > 20 %}1.1rem{% elif count > 10 %}1rem{% else %}0.9rem{% endif %};">
+              #{{ tag.name }} <span class="text-secondary">({{ count }})</span>
+            </a>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}

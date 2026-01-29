@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}Enterra{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+    <script>
+      // Установка темы при загрузке страницы
+      (function() {
+        const theme = {% if current_user.is_authenticated and current_user.theme_preference %}'{{ current_user.theme_preference }}'{% else %}'dark'{% endif %};
+        if (theme === 'light' || (theme === 'auto' && window.matchMedia('(prefers-color-scheme: light)').matches)) {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <nav class="navbar navbar-expand-lg navbar-dark sticky-top portal-nav">
+      <div class="container">
+        <a class="navbar-brand fw-extrabold" href="{{ url_for('main.index') }}">Enterra</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="nav">
+          <form class="d-flex ms-lg-3 me-lg-auto mt-3 mt-lg-0" method="post" action="{{ url_for('main.search') }}">
+            {{ search_form.hidden_tag() }}
+            <input class="form-control me-2 portal-search" name="q" placeholder="Поиск по постам…" value="{{ q or '' }}">
+            <button class="btn btn-light">Найти</button>
+          </form>
+          <div class="d-flex gap-2 mt-3 mt-lg-0">
+            {% if current_user.is_authenticated %}
+              <a class="btn btn-primary" href="{{ url_for('main.post_new') }}">+ Пост</a>
+              <a class="btn btn-outline-light" href="{{ url_for('main.following_feed') }}">📰 Подписки</a>
+              <a class="btn btn-outline-light" href="{{ url_for('main.profile', username=current_user.username) }}">{{ current_user.username }}</a>
+              {% if current_user.is_admin %}
+                <a class="btn btn-outline-warning" href="{{ url_for('main.admin') }}">Админ</a>
+              {% endif %}
+              <form method="post" action="{{ url_for('main.toggle_theme') }}" class="d-inline">
+                <input type="hidden" name="theme" value="{% if current_user.theme_preference == 'light' %}dark{% else %}light{% endif %}">
+                <button class="btn btn-outline-light" type="submit" title="Переключить тему">
+                  {% if current_user.theme_preference == 'light' %}🌙{% else %}☀️{% endif %}
+                </button>
+              </form>
+              <form method="post" action="{{ url_for('main.logout') }}">
+                <button class="btn btn-outline-light" type="submit">Выйти</button>
+              </form>
+            {% else %}
+              <a class="btn btn-outline-light" href="{{ url_for('main.login') }}">Войти</a>
+              <a class="btn btn-light" href="{{ url_for('main.register') }}">Регистрация</a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <header class="portal-hero">
+      <div class="container py-4 py-lg-5">
+        <div class="row align-items-center g-4">
+          <div class="col-lg-8">
+            <div class="badge text-bg-dark-subtle mb-3">Развлекательный портал</div>
+            <h1 class="display-6 fw-bold mb-2">Мемы, подборки, кино, игры — всё в одной ленте</h1>
+            <div class="text-secondary">Создавай посты, отмечай категории, обсуждай в комментариях — и собирай свою идеальную ленту.</div>
+            {% if current_user.is_authenticated %}
+            <div class="d-flex gap-2 mt-3">
+              <a class="btn btn-light" href="{{ url_for('main.post_new') }}">+ Создать пост</a>
+              <a class="btn btn-outline-light" href="{{ url_for('main.random_post') }}">🎲 Случайный пост</a>
+            </div>
+            {% endif %}
+            <div class="d-flex flex-wrap gap-2 mt-3">
+              <span class="badge text-bg-light border">⚡ Быстро</span>
+              <span class="badge text-bg-light border">💬 Комменты</span>
+              <span class="badge text-bg-light border">🏷️ Категории</span>
+              <span class="badge text-bg-light border">🧩 Подборки</span>
+            </div>
+          </div>
+          <div class="col-lg-4">
+            <div class="portal-cats portal-glow p-3 p-lg-4">
+              <div class="fw-bold mb-2">Категории</div>
+              <div class="d-flex flex-wrap gap-2">
+                <a class="badge rounded-pill text-bg-light portal-pill {% if not active_category %}active{% endif %}" href="{{ url_for('main.index') }}">Все</a>
+                {% for c in all_categories %}
+                  <a class="badge rounded-pill text-bg-light portal-pill {% if active_category == c.slug %}active{% endif %}" href="{{ url_for('main.index', category=c.slug) }}">{{ c.title }}</a>
+                {% endfor %}
+              </div>
+              {% if popular_tags %}
+                <div class="fw-bold mb-2 mt-3">Популярные теги</div>
+                <div class="d-flex flex-wrap gap-2">
+                  {% for tag in popular_tags[:10] %}
+                    <a class="badge rounded-pill text-bg-light portal-pill" href="{{ url_for('main.index', tag=tag.slug) }}">#{{ tag.name }}</a>
+                  {% endfor %}
+                  <a class="badge rounded-pill text-bg-light portal-pill" href="{{ url_for('main.tags_cloud') }}">Все теги →</a>
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="container pb-5">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="mt-3">
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }} mb-2 d-flex align-items-start gap-2" role="alert">
+                <div>{{ message | safe }}</div>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="portal-footer">
+      <div class="container py-4 d-flex flex-column flex-md-row gap-2 justify-content-between">
+        <div class="text-secondary">© {{ 2026 }} Enterra — учебный проект на Flask</div>
+        <div class="text-secondary">Сделано для учебных целей. Создавай посты и собирай свою ленту.</div>
+      </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>
+
+
